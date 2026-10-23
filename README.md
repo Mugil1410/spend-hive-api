@@ -48,3 +48,18 @@ Set `JWT_SECRET` in the server environment (for local development, use `.env.loc
 To request a token, send `POST /api/get-access-token` with a `client-id` header. The response contains `data.token` and `data.expiresIn` (300 seconds). Send the returned value in the `token` header when calling protected APIs.
 
 **Security note:** a client ID is an identifier, not a secret or proof of identity. This token endpoint will issue a valid token to anyone who supplies a client ID, so it does not provide meaningful protection against unauthorized callers. Use authenticated user/device credentials or a trusted server-side issuance flow before relying on JWTs for access control.
+
+### Cloud backup APIs
+
+All four are `POST` with a JSON body and need the usual `token` header. Every body includes `deviceId`, an optional `email`, and `authKey` (64 hex chars, derived on the device from the owner + backup password; the server stores only a salted scrypt hash of it).
+
+Backups belong to an **owner**: `device:<deviceId>` by default, or `email:<address>` when an email is sent, which lets the user restore on another phone. The first upload for an owner registers its `authKey`; after 10 wrong attempts the owner is locked for 15 minutes.
+
+| Endpoint | Extra body fields | Returns `data` |
+| --- | --- | --- |
+| `/api/cloud-backup/upload` | `payload` (encrypted backup JSON string, max 4 MB), `deviceName`, `appVersion`, optional `replaceId` | `{ backup, backups }` |
+| `/api/cloud-backup/list` | - | `{ backups }` (newest first, no payload) |
+| `/api/cloud-backup/download` | `id` | `{ backup, payload }` |
+| `/api/cloud-backup/delete` | `id` | `{ backups }` |
+
+Up to 3 backups are kept per owner; a 4th upload without `replaceId` returns `409`. Only `spendhive-encrypted-backup` containers are accepted. Deleting an owner's last backup also removes its stored credential. Data lives in the `cloud_backup_accounts` and `cloud_backups` collections.
