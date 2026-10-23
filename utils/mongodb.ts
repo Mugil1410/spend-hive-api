@@ -13,7 +13,11 @@ function getClientPromise(): Promise<MongoClient> {
 
     // Reuse one client across hot reloads and serverless invocations
     if (!globalForMongo.mongoClientPromise) {
-        globalForMongo.mongoClientPromise = new MongoClient(uri).connect();
+        globalForMongo.mongoClientPromise = new MongoClient(uri).connect().catch((err) => {
+            // Don't cache a failed connection; let the next request retry
+            globalForMongo.mongoClientPromise = undefined;
+            throw err;
+        });
     }
 
     return globalForMongo.mongoClientPromise;
