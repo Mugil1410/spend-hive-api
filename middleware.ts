@@ -43,7 +43,56 @@ function decodeJsonSegment(value: string): Record<string, unknown> | null {
     }
 }
 
+function safeEqual(a: string, b: string): boolean {
+    let mismatch = a.length ^ b.length;
+
+    for (let index = 0; index < a.length; index++) {
+        mismatch |= a.charCodeAt(index) ^ b.charCodeAt(index % (b.length || 1));
+    }
+
+    return mismatch === 0;
+}
+
+function checkAdminAuth(request: NextRequest) {
+    const username = process.env.ADMIN_USERNAME;
+    const password = process.env.ADMIN_PASSWORD;
+
+    if (!username || !password) {
+        return new NextResponse("ADMIN_USERNAME and ADMIN_PASSWORD must be configured", {
+            status: 500,
+        });
+    }
+
+    const authorization = request.headers.get("authorization") ?? "";
+
+    if (authorization.startsWith("Basic ")) {
+        try {
+            const credentials = atob(authorization.slice(6));
+            const separator = credentials.indexOf(":");
+
+            if (
+                separator !== -1 &&
+                safeEqual(credentials.slice(0, separator), username) &&
+                safeEqual(credentials.slice(separator + 1), password)
+            ) {
+                return NextResponse.next();
+            }
+        } catch {
+            // Fall through to the challenge below
+        }
+    }
+
+    return new NextResponse("Authentication required", {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Basic realm="SpendHive Admin"' },
+    });
+}
+
 export async function middleware(request: NextRequest) {
+    if (request.nextUrl.pathname.startsWith("/admin")) {
+        return checkAdminAuth(request);
+    }
+
     if (request.nextUrl.pathname === "/api/get-access-token") {
         return NextResponse.next();
     }
@@ -129,5 +178,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: "/api/:path*",
+    matcher: ["/api/:path*", "/admin", "/admin/:path*"],
 };

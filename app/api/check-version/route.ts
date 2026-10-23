@@ -6,6 +6,10 @@ export async function POST() {
     try {
         const updateInfo = await getUpdateInfo();
 
+        if (!updateInfo) {
+            return apiResponse(false, "No release has been published yet", 404);
+        }
+
         return apiResponse(
             true,
             "Update information fetched successfully",
