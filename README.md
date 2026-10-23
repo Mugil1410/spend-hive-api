@@ -38,3 +38,13 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 This directory contains example API routes for the headless API app.
 
 For more details, see [route.js file convention](https://nextjs.org/docs/app/api-reference/file-conventions/route).
+
+### API authentication
+
+All `/api/*` requests except `POST /api/get-access-token` must include a JWT in the `token` request header. The middleware verifies an HS256 signature, requires a numeric `iat` and future `exp` claim, and rejects tokens whose lifetime exceeds five minutes. A numeric `nbf` claim is also checked when present.
+
+Set `JWT_SECRET` in the server environment (for local development, use `.env.local`). It must contain at least 32 bytes. Do not commit the secret to source control.
+
+To request a token, send `POST /api/get-access-token` with a `client-id` header. The response contains `data.token` and `data.expiresIn` (300 seconds). Send the returned value in the `token` header when calling protected APIs.
+
+**Security note:** a client ID is an identifier, not a secret or proof of identity. This token endpoint will issue a valid token to anyone who supplies a client ID, so it does not provide meaningful protection against unauthorized callers. Use authenticated user/device credentials or a trusted server-side issuance flow before relying on JWTs for access control.
